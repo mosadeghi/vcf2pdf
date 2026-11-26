@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from reportlab.lib.units import cm
 from reportlab.platypus import (
     PageBreak,
     Paragraph,
