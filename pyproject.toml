@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vcf2pdf"
+version = "0.1.0"
+description = "Render a vCard (.vcf) address book as a printable PDF directory."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "amir mosadeghi(github.com/mosadeghi)" }]
+dependencies = [
+    "vobject",
+    "reportlab",
+    "arabic-reshaper",
+    "python-bidi",
+]
+
+[project.scripts]
+vcf2pdf = "vcf2pdf.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
