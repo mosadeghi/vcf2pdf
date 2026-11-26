@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vcf2pdf"
-version = "0.1.0"
+version = "0.2.0"
 description = "Render a vCard (.vcf) address book as a printable PDF directory."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,9 +19,11 @@ dependencies = [
 
 [project.scripts]
 vcf2pdf = "vcf2pdf.cli:main"
+vcf2pdf-gui = "vcf2pdf.gui.app:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
+build = ["pyinstaller>=6.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

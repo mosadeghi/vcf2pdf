@@ -7,6 +7,9 @@ renders them as a two-column tabular listing with alternating row shading —
 one page per letter, plus a cover page. Persian/Arabic text is reshaped and
 bidirectionally reordered, so the PDF looks correct in any viewer.
 
+Ships with both a **command-line interface** and a **tkinter GUI**, and can be
+built into a **standalone Windows executable**.
+
 ---
 
 ## Features
@@ -27,6 +30,10 @@ bidirectionally reordered, so the PDF looks correct in any viewer.
   macOS, or Linux; you can override with `--font`.
 - **Skips bad cards, keeps going** — malformed vCards are reported to
   `stderr` and counted, but never abort the run.
+- **GUI editor** — open/save VCF, list and edit contacts, delete, and export
+  PDF with a chosen title and output path.
+- **Standalone build** — PyInstaller spec and `build.ps1` produce
+  `vcf2pdf-gui.exe` and `vcf2pdf.exe` for Windows.
 
 ---
 
@@ -45,6 +52,11 @@ Python dependencies (installed automatically):
 | `arabic-reshaper` | Arabic/Persian glyph shaping |
 | `python-bidi` | Bidirectional text reordering |
 
+`tkinter` is part of the Python standard library and requires no extra
+install. On Linux you may need the system package (`sudo apt install
+python3-tk`); on Windows and macOS it is bundled with the official Python
+installer.
+
 ---
 
 ## Installation
@@ -57,25 +69,26 @@ cd vcf2pdf
 pip install .
 ```
 
-### Editable install (for development)
+### Editable install (for development, includes PyInstaller)
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,build]"
 ```
 
 ### Verification
 
 ```bash
 vcf2pdf --help
-# or
+vcf2pdf-gui --help          # opens the GUI; Ctrl+C / close to exit
 python -m vcf2pdf --help
+python -m vcf2pdf.gui       # launches the GUI
 ```
 
 ---
 
-## Usage
+## Usage — CLI
 
-### CLI
+### Basic
 
 ```bash
 vcf2pdf contacts.vcf -o address-book.pdf
@@ -102,7 +115,52 @@ vcf2pdf contacts.vcf -o address-book.pdf \
 | `--sort` | off | No-op; kept for backward compatibility. Sorting is always applied. |
 | `-h`, `--help` | — | Show usage and exit. |
 
-### Library usage
+---
+
+## Usage — GUI
+
+Launch the graphical editor:
+
+```bash
+vcf2pdf-gui
+# or
+python -m vcf2pdf.gui
+```
+
+The GUI shares the same parser, writer, and PDF builder as the CLI, so the
+exported PDF is identical to what `vcf2pdf` produces.
+
+### Features
+
+- **Open / Save VCF** — load an address book, edit it, save it back to
+  `.vcf` (Save or Save As).
+- **Contact list** — sortable table (Name / Organization / Phone / Email);
+  multi-select supported.
+- **Detail pane** — click any row to see the full contact below the list.
+- **Add / Edit / Delete** — a modal form; live edits are reflected in the
+  list immediately.
+- **Export PDF** — choose a title, choose an output path, get the same
+  zebra-striped, letter-sectioned PDF the CLI produces.
+- **Font override** — `Settings → Choose PDF Font…` for cases where the
+  auto-detected font doesn't cover your script.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+O` | Open VCF |
+| `Ctrl+S` | Save VCF |
+| `Ctrl+P` | Export PDF |
+| `Ctrl+N` | Add contact |
+| `F2` | Edit selected |
+| `Del` | Delete selected |
+| `Esc` | Close dialog |
+
+---
+
+## Library usage
+
+### Generate a PDF
 
 ```python
 from pathlib import Path
@@ -123,10 +181,15 @@ build_pdf(contacts, Path("out.pdf"), family, title="My Address Book")
 print(f"Wrote {len(contacts)} contacts ({skipped} skipped)")
 ```
 
-### As a module
+### Read and write a VCF
 
-```bash
-python -m vcf2pdf contacts.vcf -o address-book.pdf
+```python
+from pathlib import Path
+from vcf2pdf import parse_vcf
+from vcf2pdf.vcf_writer import write_vcf
+
+contacts, _ = parse_vcf(Path("in.vcf"))
+write_vcf(contacts, Path("out.vcf"))
 ```
 
 ---
@@ -179,6 +242,56 @@ or **Vazirmatn** are good choices; for Arabic, **Noto Naskh Arabic** or
 **Amiri** work well. Any Unicode TTF will do — ReportLab does not need a
 separate "Arabic" font, just one with the glyphs.
 
+The GUI can pick a font at runtime via `Settings → Choose PDF Font…`.
+
+---
+
+## Building a standalone Windows executable
+
+Tested with Python 3.11+ and PyInstaller 6.x.
+
+```powershell
+# From a clean checkout:
+python -m venv .venv
+.venv\Scripts\activate
+.\build.ps1
+```
+
+`build.ps1` will:
+
+1. install the package with its `[build]` extra,
+2. run `pyinstaller --clean --noconfirm vcf2pdf.spec`.
+
+The result is:
+
+| Artifact | Type | Notes |
+| --- | --- | --- |
+| `dist\vcf2pdf-gui.exe` | windowed | Double-click to run. No console. |
+| `dist\vcf2pdf.exe` | console | The CLI. |
+
+Both are self-contained single-file executables. Users need nothing more
+than the `.exe` itself and a Unicode TTF font on their system (Windows always
+has Tahoma / Segoe UI / Arial).
+
+### Manual build
+
+```powershell
+pip install -e ".[build]"
+pyinstaller --clean --noconfirm vcf2pdf.spec
+```
+
+### Notes on the build
+
+- The spec uses `pathex=['src']` **and** assumes the package is installed via
+  `pip install -e .`. Either alone is enough; together they make the build
+  robust.
+- `upx=False` to avoid known ReportLab/DLL issues.
+- `reportlab` ships a few runtime data files; they are collected via
+  `collect_data_files("reportlab")` in the spec.
+- `tkinter` is bundled automatically by PyInstaller on Windows.
+- Fonts are **not** bundled — the executable reads them from the system's
+  font directory, same as the CLI.
+
 ---
 
 ## Project structure
@@ -187,26 +300,38 @@ separate "Arabic" font, just one with the glyphs.
 vcf2pdf/
 ├── pyproject.toml
 ├── README.md
+├── vcf2pdf.spec                # PyInstaller spec (GUI + CLI)
+├── build.ps1                   # one-shot Windows build script
+├── gui_launcher.py             # PyInstaller entry: GUI
+├── cli_launcher.py             # PyInstaller entry: CLI
 └── src/
     └── vcf2pdf/
-        ├── __init__.py       # public API
-        ├── __main__.py       # `python -m vcf2pdf`
-        ├── cli.py            # argument parsing and orchestration
-        ├── models.py         # Contact dataclass
-        ├── theme.py          # palette and layout constants
-        ├── rtl.py            # Arabic shaping + bidi reorder
-        ├── grouping.py       # alphabetical bucketing
-        ├── fonts.py          # font discovery and registration
-        ├── vcf_parser.py     # robust VCF decoding and parsing
-        ├── styles.py         # ReportLab ParagraphStyles
-        ├── layout.py         # contact cells, section headers, tables
-        └── pdf_builder.py    # assemble the final document
+        ├── __init__.py         # public API
+        ├── __main__.py         # `python -m vcf2pdf`
+        ├── cli.py              # argument parsing and orchestration
+        ├── models.py           # Contact dataclass
+        ├── theme.py            # palette and layout constants
+        ├── rtl.py              # Arabic shaping + bidi reorder
+        ├── grouping.py         # alphabetical bucketing
+        ├── fonts.py            # font discovery and registration
+        ├── vcf_parser.py       # robust VCF decoding and parsing
+        ├── vcf_writer.py       # serialize contacts back to .vcf
+        ├── styles.py           # ReportLab ParagraphStyles
+        ├── layout.py           # contact cells, section headers, tables
+        ├── pdf_builder.py      # assemble the final document
+        └── gui/                # tkinter front-end
+            ├── __init__.py
+            ├── __main__.py     # `python -m vcf2pdf.gui`
+            ├── app.py          # main window
+            └── contact_editor.py  # add/edit dialog
 ```
 
 Dependency direction is strictly:
 
 ```
 models  →  rtl / theme  →  grouping / vcf_parser  →  styles / layout  →  pdf_builder  →  cli
+                                                               ↘
+                                                                gui
 ```
 
 ---
@@ -218,7 +343,7 @@ git clone <repo-url> vcf2pdf
 cd vcf2pdf
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -e ".[dev,build]"
 ```
 
 Lint (catches undefined-name bugs like missing imports):
@@ -233,6 +358,12 @@ Run the CLI against a small fixture:
 vcf2pdf tests/fixtures/sample.vcf -o /tmp/sample.pdf
 ```
 
+Launch the GUI:
+
+```bash
+vcf2pdf-gui
+```
+
 ---
 
 ## Troubleshooting
@@ -240,7 +371,7 @@ vcf2pdf tests/fixtures/sample.vcf -o /tmp/sample.pdf
 **`No Unicode font found`**  
 Install a Unicode font, or pass `--font` explicitly. On Linux you may need
 `fonts-noto` / `fonts-dejavu`; on minimal Docker images, copy a TTF into the
-image and point `--font` at it.
+image and point `--font` at it. In the GUI, use `Settings → Choose PDF Font…`.
 
 **`Persian/Arabic text detected but arabic-reshaper / python-bidi are not installed`**  
 Run `pip install arabic-reshaper python-bidi` (or
@@ -254,7 +385,22 @@ a text editor and typing a Persian word.
 **Some cards are silently dropped**  
 Look at `stderr` — the parser prints `Warning: skipped vCard #N (…)` for
 each failure, with the exception type and message. The exit code is still
-`0`, and the count of skipped cards is printed at the end.
+`0`, and the count of skipped cards is printed at the end. The GUI shows the
+skipped count in its status bar.
+
+**`ModuleNotFoundError: No module named 'tkinter'` (Linux)**  
+Install the system package: `sudo apt install python3-tk` (Debian/Ubuntu) or
+`sudo dnf install python3-tkinter` (Fedora).
+
+**PyInstaller build fails on ReportLab**  
+Make sure `upx=False` in the spec (already the default here) and that
+`reportlab` is installed in the same environment you run `pyinstaller` from.
+Run `pyinstaller --clean` to purge the cache.
+
+**`vcf2pdf-gui.exe` opens then closes immediately**  
+Usually a missing font or a ReportLab data file. Run the console build
+(`dist\vcf2pdf.exe`) to see the actual error, or temporarily set
+`console=True` on `exe_gui` in `vcf2pdf.spec` and rebuild.
 
 **Output PDF has a blank page at the end**  
 This is a ReportLab quirk with trailing `PageBreak`s. It shouldn't happen with
