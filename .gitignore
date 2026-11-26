@@ -27,6 +27,7 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+!vcf2pdf.spec
 
 # Unit test / coverage
 htmlcov/
