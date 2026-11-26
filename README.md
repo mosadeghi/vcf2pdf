@@ -1,5 +1,5 @@
 # vcf2pdf
-![vcf2pdf screenshot](screenshots\vcf2pdf-screenshot-1.png)
+![vcf2pdf screenshot](screenshots/vcf2pdf-screenshot-1.png)
 
 Turn a vCard (`.vcf`) address book into a clean, printable PDF directory.
 
